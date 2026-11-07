@@ -29,8 +29,8 @@ Each step is written to `ticket_events`. The ticket page shows the full trace li
 - **LLM:** every agent uses Claude Opus 5.5 (`anthropic/claude-opus-5-5`) through CrewAI's native Anthropic provider. A
   small HTTP interceptor (`support_crew/llm.py`) sets `output_config.effort` (`SUPPORT_LLM_EFFORT`, default `medium`)
   and turns on server-side refusal fallbacks (`fallbacks: "default"`; set `SUPPORT_LLM_FALLBACKS=0` to turn it off).
-  To change the model, set `SUPPORT_LLM_MODEL`; any model string CrewAI/LiteLLM accepts works (for example
-  `groq/llama-3.3-70b-versatile` with `GROQ_API_KEY` set).
+  To change the model, set `SUPPORT_LLM_MODEL`; any model string CrewAI supports works, and `groq/<model>` (for example
+  `groq/openai/gpt-oss-120b`, with `GROQ_API_KEY` set) goes through Groq's OpenAI-compatible endpoint.
 
 ## Quick start (Docker)
 

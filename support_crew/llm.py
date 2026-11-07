@@ -52,6 +52,9 @@ class MessagesRequestOptions(BaseInterceptor[httpx.Request, httpx.Response]):
 def build_llm() -> LLM:
     model = os.environ.get("SUPPORT_LLM_MODEL", DEFAULT_MODEL)
     kwargs = {"model": model}
+    if model.startswith("groq/"):                     # Groq's OpenAI-compatible endpoint, so LiteLLM is not required
+        kwargs = {"model": "openai/" + model[len("groq/"):], "base_url": "https://api.groq.com/openai/v1",
+                  "api_key": os.environ["GROQ_API_KEY"]}
     if model.startswith(("anthropic/", "claude")):
         kwargs["interceptor"] = MessagesRequestOptions(
             effort=os.environ.get("SUPPORT_LLM_EFFORT", "medium") or None,
