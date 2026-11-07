@@ -1,0 +1,68 @@
+{% extends "support/base.html" %}
+{% load support_tags %}
+{% block title %}Support dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="stats">
+  <div class="stat">
+    <span class="stat-value">{{ m.resolution_rate|pct }}</span>
+    <span class="stat-label">resolved end-to-end</span>
+    <span class="stat-sub">{{ m.resolved }} of {{ m.closed }} closed tickets</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value">{{ m.escalation_rate|pct }}</span>
+    <span class="stat-label">escalation rate</span>
+    <span class="stat-sub">{% if m.escalation_delta is not None %}{{ m.escalation_delta|signed_pct }} vs {{ m.baseline_escalation_rate|pct }} baseline{% else %}{{ m.escalated }} escalated · {{ m.failed }} failed{% endif %}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value">{{ m.avg_handling_seconds|duration }}</span>
+    <span class="stat-label">avg. handling time</span>
+    <span class="stat-sub">from pickup to outcome</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value">{{ m.open }}</span>
+    <span class="stat-label">in progress</span>
+    <span class="stat-sub">{{ m.total }} tickets total</span>
+  </div>
+</div>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>By category</h2>
+    {% for c in m.categories %}
+      <div class="bar-row">
+        <span>{{ c.category }}</span>
+        <div class="bar"><div class="bar-fill" style="width: {{ c.rate|pct }}"></div></div>
+        <span class="muted small">{{ c.resolved }}/{{ c.total }} resolved</span>
+      </div>
+    {% empty %}<p class="muted">No closed tickets yet.</p>{% endfor %}
+  </section>
+  <section class="card">
+    <h2>Most used MCP tools</h2>
+    {% for name, n in m.tool_calls %}
+      <div class="bar-row"><code>{{ name }}</code><span></span><span class="muted small">{{ n }} call{{ n|pluralize }}</span></div>
+    {% empty %}<p class="muted">No tool calls yet.</p>{% endfor %}
+  </section>
+</div>
+
+<section class="card">
+  <h2>Recent tickets</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Subject</th><th>Customer</th><th>Category</th><th>Status</th><th>Created</th></tr></thead>
+      <tbody>
+      {% for t in tickets %}
+        <tr>
+          <td><a href="{% url 'ticket_detail' t.pk %}">{{ t.pk }}</a></td>
+          <td><a href="{% url 'ticket_detail' t.pk %}">{{ t.subject }}</a></td>
+          <td>{{ t.email }}</td>
+          <td>{{ t.category|default:"—" }}</td>
+          <td><span class="badge badge-{{ t.status }}">{{ t.get_status_display }}</span></td>
+          <td class="muted">{{ t.created_at|timesince }} ago</td>
+        </tr>
+      {% empty %}<tr><td colspan="6" class="muted">No tickets yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "support/base.html" %}
+{% block title %}Contact support{% endblock %}
+{% block content %}
+<div class="grid-2">
+  <section class="card">
+    <h1>Contact support</h1>
+    <p class="muted">Our agent crew reads your request, checks your account and orders, and resolves it or hands it to a specialist.</p>
+    <form method="post" class="form">
+      {% csrf_token %}
+      {% for field in form %}
+        <label>
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}
+        </label>
+      {% endfor %}
+      <button type="submit" class="btn">Submit request</button>
+    </form>
+  </section>
+  <aside class="card">
+    <h2>How it works</h2>
+    <ol class="pipeline">
+      <li><b>Reason</b><span>A CrewAI crew triages the request, plans a fix, and reviews it.</span></li>
+      <li><b>Act</b><span>Agents call back-office tools over MCP: orders, refunds, knowledge base.</span></li>
+      <li><b>Outcome</b><span>The ticket is resolved end-to-end, or escalated with full context.</span></li>
+    </ol>
+    <p class="muted small">Demo accounts: ava@example.com (ORD-1001, ORD-1002), liam@example.com (ORD-2001), sofia@example.com (ORD-3001), noah@example.com (ORD-4001).</p>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Agentic Support{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'support/app.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'submit_ticket' %}"><span class="dot"></span>Agentic Support</a>
+    <nav>
+      <a href="{% url 'submit_ticket' %}" {% if request.resolver_match.url_name == 'submit_ticket' %}class="active"{% endif %}>New request</a>
+      <a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a>
+      <a href="/admin/">Admin</a>
+    </nav>
+  </header>
+  <main class="container">{% block content %}{% endblock %}</main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

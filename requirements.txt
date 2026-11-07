@@ -1,0 +1,7 @@
+Django>=5.1
+psycopg[binary]>=3.2
+dj-database-url>=2.2
+python-dotenv>=1.0
+crewai[anthropic]>=1.15
+crewai-tools[mcp]>=1.15
+mcp>=1.20

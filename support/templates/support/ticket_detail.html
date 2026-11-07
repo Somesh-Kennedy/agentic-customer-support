@@ -1,0 +1,76 @@
+{% extends "support/base.html" %}
+{% block title %}Ticket #{{ ticket.pk }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="ticket-head">
+    <div>
+      <p class="muted small">Ticket #{{ ticket.pk }} · {{ ticket.email }}{% if ticket.order_number %} · {{ ticket.order_number }}{% endif %}</p>
+      <h1>{{ ticket.subject }}</h1>
+    </div>
+    <span class="badge badge-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+  </div>
+  <p class="message">{{ ticket.body|linebreaksbr }}</p>
+  {% if ticket.is_open %}
+    <p class="muted working"><span class="spinner"></span>The agent crew is working on this request…</p>
+  {% endif %}
+</section>
+
+{% if ticket.resolution or ticket.escalation_reason %}
+<section class="card outcome-{{ ticket.status }}">
+  {% if ticket.resolution %}
+    <h2>Reply to customer</h2>
+    <p class="message">{{ ticket.resolution|linebreaksbr }}</p>
+  {% endif %}
+  {% if ticket.escalation_reason %}
+    <h2>{% if ticket.status == "failed" %}Automated handling failed{% else %}Escalated to a human · {{ ticket.get_priority_display }} priority{% endif %}</h2>
+    <p>{{ ticket.escalation_reason }}</p>
+  {% endif %}
+  <p class="muted small">{% if ticket.category %}Category: {{ ticket.category }} · {% endif %}{% if ticket.handling_seconds %}Handled in {{ ticket.handling_seconds|floatformat:0 }}s{% endif %}</p>
+</section>
+{% endif %}
+
+<section class="trace">
+  <div class="lane">
+    <h3><span class="step">1</span> Reason <small>CrewAI crew</small></h3>
+    {% for e in trace.reason %}
+      <details class="event" open>
+        <summary>{{ e.actor }}</summary>
+        <div class="event-body">{{ e.summary|linebreaksbr }}</div>
+      </details>
+    {% empty %}<p class="muted small">No agent output yet.</p>{% endfor %}
+  </div>
+  <div class="lane">
+    <h3><span class="step">2</span> Act <small>MCP tool calls</small></h3>
+    {% for e in trace.act %}
+      <details class="event">
+        <summary><code>{{ e.actor }}</code>{% if e.payload.result.ok is False %}<span class="tag tag-warn">refused</span>{% endif %}<span class="event-sum">{{ e.summary }}</span></summary>
+        <pre>{{ e.payload.args|pprint }}</pre>
+      </details>
+    {% empty %}<p class="muted small">No tool calls yet.</p>{% endfor %}
+  </div>
+  <div class="lane">
+    <h3><span class="step">3</span> Outcome <small>Resolved / escalated</small></h3>
+    {% for e in trace.outcome %}
+      <div class="event event-flat"><code>{{ e.actor }}</code><span class="event-sum">{{ e.summary }}</span><time>{{ e.created_at|time:"H:i:s" }}</time></div>
+    {% empty %}<p class="muted small">Waiting for the crew to start.</p>{% endfor %}
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+{% if ticket.is_open %}
+<script>
+  (function () {
+    const url = "{% url 'ticket_status' ticket.pk %}";
+    let seen = null;
+    setInterval(async () => {
+      try {
+        const s = await (await fetch(url)).json();
+        const key = s.status + ":" + s.events;
+        if (seen !== null && key !== seen) location.reload();
+        seen = key;
+      } catch (e) { /* retry on next tick */ }
+    }, 2000);
+  })();
+</script>
+{% endif %}
+{% endblock %}
