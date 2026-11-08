@@ -40,6 +40,20 @@ def _ticket(conn, ticket_id: int):
     return conn.execute("SELECT * FROM tickets WHERE id = %s", (ticket_id,)).fetchone()
 
 
+def _ticket_email(conn, ticket_id: int, email: str):
+    """The only email a read tool may look up: the one on the ticket.
+
+    Returns (email, None) when the caller passed nothing or the ticket's own address, and (None, error_message) when it
+    asked about someone else (or the ticket does not exist), so a manipulated agent cannot read another customer's data.
+    """
+    ticket = _ticket(conn, ticket_id)
+    if not ticket:
+        return None, f"Ticket {ticket_id} not found"
+    if email and email.strip().lower() != ticket["email"].strip().lower():
+        return None, "Not allowed: you can only look up the customer who opened this ticket"
+    return ticket["email"], None
+
+
 def _order_for_ticket(conn, ticket, order_number: str):
     """Fetch an order only if it belongs to the customer who opened the ticket."""
     return conn.execute(
@@ -62,9 +76,16 @@ def _refunded_total(conn, order_id: int) -> Decimal:
 
 
 @mcp.tool()
-def lookup_customer(ticket_id: int, email: str) -> dict:
-    """Look up a customer profile (name, tier, account age) by email address."""
+def lookup_customer(ticket_id: int, email: str = "") -> dict:
+    """Look up the profile (name, tier, account age) of the customer who opened this ticket.
+
+    `email` is optional; if given it must be the ticket's own email address.
+    """
     with connect() as conn:
+        own, error = _ticket_email(conn, ticket_id, email)
+        if error:
+            return _audit(conn, ticket_id, "lookup_customer", {"email": email}, {"found": False, "message": error})
+        email = own
         row = conn.execute(
             "SELECT id, name, email, tier, created_at FROM customers WHERE lower(email) = lower(%s)",
             (email,),
@@ -78,9 +99,16 @@ def lookup_customer(ticket_id: int, email: str) -> dict:
 
 
 @mcp.tool()
-def list_customer_orders(ticket_id: int, email: str) -> dict:
-    """List a customer's recent orders (number, status, total, date) by email address."""
+def list_customer_orders(ticket_id: int, email: str = "") -> dict:
+    """List recent orders (number, status, total, date) of the customer who opened this ticket.
+
+    `email` is optional; if given it must be the ticket's own email address.
+    """
     with connect() as conn:
+        own, error = _ticket_email(conn, ticket_id, email)
+        if error:
+            return _audit(conn, ticket_id, "list_customer_orders", {"email": email}, {"orders": [], "message": error})
+        email = own
         rows = conn.execute(
             """
             SELECT o.order_number, o.status, o.total, o.created_at
@@ -158,9 +186,16 @@ def search_knowledge_base(ticket_id: int, query: str, limit: int = 3) -> dict:
 
 
 @mcp.tool()
-def get_ticket_history(ticket_id: int, email: str) -> dict:
-    """List the customer's previous support tickets and how they ended (useful for repeat issues)."""
+def get_ticket_history(ticket_id: int, email: str = "") -> dict:
+    """List the previous tickets of the customer who opened this one and how they ended (useful for repeat issues).
+
+    `email` is optional; if given it must be the ticket's own email address.
+    """
     with connect() as conn:
+        own, error = _ticket_email(conn, ticket_id, email)
+        if error:
+            return _audit(conn, ticket_id, "get_ticket_history", {"email": email}, {"tickets": [], "message": error})
+        email = own
         rows = conn.execute(
             """
             SELECT id, subject, status, category, created_at FROM tickets

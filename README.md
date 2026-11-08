@@ -54,7 +54,7 @@ business rules**, so a persuasive customer or a confused model cannot break them
 
 | Tool | Rule enforced in code |
 |---|---|
-| `lookup_customer`, `list_customer_orders`, `get_ticket_history` | Read only. They take an email address (see Limitations). |
+| `lookup_customer`, `list_customer_orders`, `get_ticket_history` | Read only, and **tied to the ticket's own customer**. The `email` argument is optional; if the agent passes a different address the tool answers "Not allowed" and returns nothing (the attempt is still logged). The lookup always uses the email stored on the ticket. |
 | `get_order` | Returns an order only if it belongs to the customer (matched by email) who opened the ticket. Also reports refunded so far and refundable remaining. |
 | `search_knowledge_base` | PostgreSQL full-text search over the help articles; if the AND query finds nothing it retries with OR. |
 | `issue_refund` | Order must belong to the ticket's customer; amount must be positive; cannot exceed what is still refundable; **cannot exceed the auto-approval limit** (`SUPPORT_REFUND_AUTO_LIMIT`, default $200) and says to escalate instead. |
@@ -91,7 +91,8 @@ every model pins its table name.
 - **Fail closed.** If the crew finishes without making a decision, the ticket is escalated to a human. If it crashes, the
   ticket is marked `failed` and can be re-queued from the admin.
 - **Prompt-injection hygiene.** Customer text is delimited and labelled as data, and the tools that change anything check
-  that the order belongs to the ticket's customer.
+  that the order belongs to the ticket's customer. The read tools are bound to the ticket's own email too, so a manipulated
+  agent cannot look up another customer's profile, orders or ticket history.
 - **LLM:** every agent uses Claude Opus 5.5 (`anthropic/claude-opus-5-5`) through CrewAI's native Anthropic provider. A
   small HTTP interceptor (`support_crew/llm.py`) sets `output_config.effort` (`SUPPORT_LLM_EFFORT`, default `medium`)
   and turns on server-side refusal fallbacks (`fallbacks: "default"`; set `SUPPORT_LLM_FALLBACKS=0` to turn it off).
@@ -99,7 +100,7 @@ every model pins its table name.
   `groq/openai/gpt-oss-120b`, with `GROQ_API_KEY` set) goes through Groq's OpenAI-compatible endpoint.
 
 ## Measured behaviour
-**Automated tests:** 21 tests pass against a real PostgreSQL 16 container (see [Tests](#tests)). No LLM calls are made.
+**Automated tests:** 25 tests pass against a real PostgreSQL 16 container (see [Tests](#tests)). No LLM calls are made.
 
 **One live run** with `groq/openai/gpt-oss-120b` on Groq's free tier, on the five sample tickets from `seed_demo --tickets`
 (2026-11-07):
@@ -176,9 +177,9 @@ support_crew/    CrewAI crew, LLM config, and the ticket runner
 
 ## Limitations
 - All data is demo data; no real customers or orders. The knowledge base has six short articles.
-- `lookup_customer`, `list_customer_orders` and `get_ticket_history` take an email address from the model and are not tied to
-  the ticket's own email, so a manipulated agent could read another customer's order list or ticket history. Order details and
-  every write are tied to the ticket's customer. Binding the read tools too is the obvious hardening step.
+- The ticket's email address is whatever the customer typed in the form and is not verified (there is no login), so the ownership
+  checks protect customers from each other only as far as that address can be trusted. A real deployment would tie tickets to
+  authenticated accounts.
 - No authentication on the ticket form, and no email delivery: the "reply" is stored on the ticket, not sent.
 - Quality depends on the model. Smaller or rate-limited models may stop without closing the ticket (the worker then
   escalates it). There is no automated end-to-end evaluation of resolution quality in this repo, only the one live run above.

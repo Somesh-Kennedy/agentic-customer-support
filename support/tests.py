@@ -45,6 +45,32 @@ class McpToolTests(McpDatabaseTestCase):
         self.assertTrue(mcp.get_order(t.pk, "ord-1001")["found"])
         self.assertFalse(mcp.get_order(t.pk, "ORD-2001")["found"])  # Liam's order
 
+    def test_read_tools_only_serve_the_ticket_owner(self):
+        t = self.ticket()                                      # opened by ava@example.com
+        other = "liam@example.com"
+        for tool in (mcp.lookup_customer, mcp.list_customer_orders, mcp.get_ticket_history):
+            result = tool(t.pk, other)
+            self.assertIn("Not allowed", result["message"], tool.__name__)
+        self.assertFalse(mcp.lookup_customer(t.pk, other)["found"])
+        self.assertEqual(mcp.list_customer_orders(t.pk, other)["orders"], [])
+        self.assertEqual(mcp.get_ticket_history(t.pk, other)["tickets"], [])
+
+    def test_read_tools_accept_the_own_email_in_any_case_or_none_at_all(self):
+        t = self.ticket()
+        self.assertEqual(mcp.lookup_customer(t.pk, "AVA@Example.com")["customer"]["name"], "Ava Patel")
+        self.assertEqual(mcp.lookup_customer(t.pk)["customer"]["name"], "Ava Patel")
+        numbers = {o["order_number"] for o in mcp.list_customer_orders(t.pk)["orders"]}
+        self.assertEqual(numbers, {"ORD-1001", "ORD-1002"})              # none of Liam's, Sofia's or Noah's
+
+    def test_refused_lookup_is_still_written_to_the_trace(self):
+        t = self.ticket()
+        mcp.list_customer_orders(t.pk, "noah@example.com")
+        event = t.events.get(actor="list_customer_orders")
+        self.assertIn("Not allowed", event.summary)
+
+    def test_read_tools_reject_an_unknown_ticket(self):
+        self.assertIn("not found", mcp.lookup_customer(999999, "ava@example.com")["message"])
+
     def test_refund_within_limit_is_recorded(self):
         t = self.ticket()
         result = mcp.issue_refund(t.pk, "ORD-1001", 89.99, "damaged on arrival")
